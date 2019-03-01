@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">MediaBrowseDemo</string>
+
+    <string name="usb_audio_durationformatshort">%2$d:%5$02d</string>
+    <string name="usb_audio_durationformatlong">%1$d:%3$02d:%5$02d</string>
+    <string name="usb_audio_error_no_metadata">Unable to retrieve metadata.</string>
+    <string name="usb_audio_browse_musics_by_genre_subtitle">%1$s songs</string>
+    <string name="usb_audio_random_queue_title">Random music</string>
+    <string name="usb_audio_no_search_results">No search results.</string>
+
+    <string name="media_list_title_artists">Artists</string>
+    <string name="media_list_title_albums">Albums</string>
+    <string name="media_list_title_songs">Songs</string>
+    <string name="media_list_title_folders">Folders</string>
+    <string name="media_list_title_playlists">Playlists</string>
+</resources>
