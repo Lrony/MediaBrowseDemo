@@ -387,30 +387,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         @Override
         public void onPlayFromMediaId(String mediaId, Bundle extras) {
             Log.d(TAG, "playFromMediaId mediaId:" + mediaId + "  extras=" + extras);
-
-            // The mediaId used here is not the unique musicId. This one comes from the
-            // MediaBrowser, and is actually a "hierarchy-aware mediaID": a concatenation of
-            // the hierarchy in MediaBrowser and the actual unique musicID. This is necessary
-            // so we can build the correct playing queue, based on where the track was
-            // selected from.
-            mPlayingQueue = QueueHelper.getPlayingQueue(mediaId, mMusicProvider);
-            mSession.setQueue(mPlayingQueue);
-            String queueTitle = getString(R.string.usb_audio_browse_musics_by_genre_subtitle,
-                    MediaIDHelper.extractBrowseCategoryValueFromMediaID(mediaId));
-            mSession.setQueueTitle(queueTitle);
-
-            if (mPlayingQueue != null && !mPlayingQueue.isEmpty()) {
-                // set the current index on queue from the media Id:
-                mCurrentIndexOnQueue = QueueHelper.getMusicIndexOnQueue(mPlayingQueue, mediaId);
-
-                if (mCurrentIndexOnQueue < 0) {
-                    Log.e(TAG, "playFromMediaId: media ID " + mediaId +
-                            " could not be found on queue. Ignoring.");
-                } else {
-                    // play the music
-                    handlePlayRequest();
-                }
-            }
+            playFromMediaId(mediaId);
         }
 
         @Override
@@ -707,6 +684,39 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         return null;
     }
 
+    private void playFromMediaId(String mediaId) {
+        Log.d(TAG, "playFromMediaId: " + mediaId);
+        if (mediaId == null) {
+            Log.d(TAG, "playFromMediaId mediaId is null");
+            return;
+        }
+        // The mediaId used here is not the unique musicId. This one comes from the
+        // MediaBrowser, and is actually a "hierarchy-aware mediaID": a concatenation of
+        // the hierarchy in MediaBrowser and the actual unique musicID. This is necessary
+        // so we can build the correct playing queue, based on where the track was
+        // selected from.
+        mPlayingQueue = QueueHelper.getPlayingQueue(mediaId, mMusicProvider);
+        mSession.setQueue(mPlayingQueue);
+        String queueTitle = getString(R.string.usb_audio_browse_musics_by_genre_subtitle,
+                MediaIDHelper.extractBrowseCategoryValueFromMediaID(mediaId));
+        mSession.setQueueTitle(queueTitle);
+
+        if (mPlayingQueue != null && !mPlayingQueue.isEmpty()) {
+            // set the current index on queue from the media Id:
+            mCurrentIndexOnQueue = QueueHelper.getMusicIndexOnQueue(mPlayingQueue, mediaId);
+            Log.d(TAG, "playHistoryWithoutLoad mCurrentIndexOnQueue: " + mCurrentIndexOnQueue);
+
+            if (mCurrentIndexOnQueue < 0) {
+                Log.d(TAG, "playHistoryWithoutLoad: media ID " + mediaId +
+                        " could not be found on queue. Ignoring.");
+            } else {
+                Log.d(TAG, "playHistoryWithoutLoad play");
+                // play the music
+                handlePlayRequest();
+            }
+        }
+    }
+
     private void playHistory() {
         Log.d(TAG, "playHistory");
         if (mPlayback.isPlaying()) {
@@ -736,31 +746,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
             Log.d(TAG, "playHistoryWithoutLoad mediaId isEmpty");
             return;
         }
-        // The mediaId used here is not the unique musicId. This one comes from the
-        // MediaBrowser, and is actually a "hierarchy-aware mediaID": a concatenation of
-        // the hierarchy in MediaBrowser and the actual unique musicID. This is necessary
-        // so we can build the correct playing queue, based on where the track was
-        // selected from.
-        mPlayingQueue = QueueHelper.getPlayingQueue(mediaId, mMusicProvider);
-        mSession.setQueue(mPlayingQueue);
-        String queueTitle = getString(R.string.usb_audio_browse_musics_by_genre_subtitle,
-                MediaIDHelper.extractBrowseCategoryValueFromMediaID(mediaId));
-        mSession.setQueueTitle(queueTitle);
-
-        if (mPlayingQueue != null && !mPlayingQueue.isEmpty()) {
-            // set the current index on queue from the media Id:
-            mCurrentIndexOnQueue = QueueHelper.getMusicIndexOnQueue(mPlayingQueue, mediaId);
-            Log.d(TAG, "playHistoryWithoutLoad mCurrentIndexOnQueue: " + mCurrentIndexOnQueue);
-
-            if (mCurrentIndexOnQueue < 0) {
-                Log.d(TAG, "playHistoryWithoutLoad: media ID " + mediaId +
-                        " could not be found on queue. Ignoring.");
-            } else {
-                Log.d(TAG, "playHistoryWithoutLoad play");
-                // play the music
-                handlePlayRequest();
-            }
-        }
+        playFromMediaId(mediaId);
     }
 
     /**

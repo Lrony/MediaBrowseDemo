@@ -50,6 +50,7 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
     private volatile boolean mAudioNoisyReceiverRegistered;
     private volatile int mCurrentPosition;
     private volatile String mCurrentMediaId;
+    private long mStartSeekPos = 0;
 
     // Type of audio focus we have:
     private int mAudioFocus = AUDIO_NO_FOCUS_NO_DUCK;
@@ -147,6 +148,12 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
             @SuppressLint("WrongConstant") String source = track.getString(MusicProvider.CUSTOM_METADATA_TRACK_SOURCE);
 
             try {
+                if (mediaId.equals(SharedPreferencesUtil.getInstance().getMediaBrowseId())) {
+                    mStartSeekPos = SharedPreferencesUtil.getInstance().getMusicPosition();
+                } else {
+                    mStartSeekPos = 0;
+                }
+
                 createMediaPlayerIfNeeded();
 
                 mState = PlaybackState.STATE_BUFFERING;
@@ -277,6 +284,10 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
                             "configMediaPlayerState startMediaPlayer. seeking to "
                                     + mCurrentPosition);
                     if (mCurrentPosition == mMediaPlayer.getCurrentPosition()) {
+                        if (mStartSeekPos != 0) {
+                            mMediaPlayer.seekTo((int) mStartSeekPos);
+                            mStartSeekPos = 0;
+                        }
                         mMediaPlayer.start();
                         mState = PlaybackState.STATE_PLAYING;
                     } else {
