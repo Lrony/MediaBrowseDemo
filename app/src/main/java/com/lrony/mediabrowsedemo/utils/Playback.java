@@ -183,7 +183,7 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
                 }
 
             } catch (IOException ex) {
-                Log.e(TAG, ex + "Exception playing song");
+                Log.d(TAG, ex + "Exception playing song");
                 if (mCallback != null) {
                     mCallback.onError(ex.getMessage());
                 }
@@ -330,7 +330,7 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
                 mPlayOnFocusGain = true;
             }
         } else {
-            Log.e(TAG, "onAudioFocusChange: Ignoring unsupported focusChange: " + focusChange);
+            Log.d(TAG, "onAudioFocusChange: Ignoring unsupported focusChange: " + focusChange);
         }
         configMediaPlayerState();
     }
@@ -359,7 +359,7 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
      */
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        Log.e(TAG, "Media player error: what=" + what + ", extra=" + extra);
+        Log.d(TAG, "Media player error: what=" + what + ", extra=" + extra);
         if (mCallback != null) {
             mCallback.onError("MediaPlayer error " + what + " (" + extra + ")");
         }

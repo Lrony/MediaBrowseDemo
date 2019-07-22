@@ -414,7 +414,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
             if (QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
                 handlePlayRequest();
             } else {
-                Log.e(TAG,
+                Log.d(TAG,
                         "skipToNext: cannot skip to next. next Index=" + mCurrentIndexOnQueue
                                 + " queue length="
                                 + (mPlayingQueue == null ? "null" : mPlayingQueue.size()));
@@ -434,7 +434,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
             if (QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
                 handlePlayRequest();
             } else {
-                Log.e(TAG,
+                Log.d(TAG,
                         "skipToPrevious: cannot skip to previous. previous Index="
                                 + mCurrentIndexOnQueue + " queue length="
                                 + (mPlayingQueue == null ? "null" : mPlayingQueue.size()));
@@ -551,7 +551,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     @SuppressLint("WrongConstant")
     private void updateMetadata() {
         if (!QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
-            Log.e(TAG, "Can't retrieve current metadata.");
+            Log.d(TAG, "Can't retrieve current metadata.");
             updatePlaybackState(getResources().getString(R.string.usb_audio_error_no_metadata));
             return;
         }
@@ -562,7 +562,7 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         final String trackId = track.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
         if (!musicId.equals(trackId)) {
             IllegalStateException e = new IllegalStateException("track ID should match musicId.");
-            Log.e(TAG, "track ID should match musicId." + " musicId=" + musicId +
+            Log.d(TAG, "track ID should match musicId." + " musicId=" + musicId +
                     " trackId=" + trackId +
                     " mediaId from queueItem=" + queueItem.getDescription().getMediaId() +
                     " title from queueItem=" + queueItem.getDescription().getTitle() +

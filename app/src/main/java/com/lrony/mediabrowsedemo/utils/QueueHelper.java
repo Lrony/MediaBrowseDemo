@@ -50,7 +50,7 @@ class QueueHelper {
         String[] hierarchy = MediaIDHelper.getHierarchy(mediaId);
 
         if (hierarchy.length != 2) {
-            Log.e(TAG, "Could not build a playing queue for this mediaId: " + mediaId);
+            Log.d(TAG, "Could not build a playing queue for this mediaId: " + mediaId);
             return null;
         }
 
@@ -78,7 +78,7 @@ class QueueHelper {
         }
 
         if (tracks == null) {
-            Log.e(
+            Log.d(
                     TAG, "Unrecognized category type: " + categoryType + " for mediaId " + mediaId);
             return null;
         }

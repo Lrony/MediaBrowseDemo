@@ -217,7 +217,7 @@ public class MusicProvider {
                 mContext.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                         null, MUSIC_SELECT_FILTER, null, MUSIC_SORT_ORDER);
         if (cursor == null) {
-            Log.e(TAG, "Failed to retreive music: cursor is null");
+            Log.d(TAG, "Failed to retreive music: cursor is null");
             mCurrentState = State.NON_INITIALIZED;
             return false;
         }
