@@ -149,6 +149,8 @@ class MainModel {
             mMediaController = new MediaController(mContext, mMediaBrowser.getSessionToken());
             mMediaController.registerCallback(mMediaControllerCallback);
 
+            mMediaController.getTransportControls().sendCustomAction(MediaPlaybackService.ACTION_PLAY_HISTORY, null);
+
             if (mView != null) {
                 mView.onMediaBrowserConnected(mMediaController);
                 mView.onMetadataChanged(mMediaController.getMetadata());

@@ -154,6 +154,11 @@ public class Playback implements AudioManager.OnAudioFocusChangeListener, MediaP
                 mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                 mMediaPlayer.setDataSource(source);
 
+                Log.d(TAG, "play source: " + source);
+                Log.d(TAG, "play mediaId: " + mediaId);
+                SharedPreferencesUtil.getInstance().putMusicData(source);
+                SharedPreferencesUtil.getInstance().putMediaBrowseId(mediaId);
+
                 // Starts preparing the media player in the background. When
                 // it's done, it will call our OnPreparedListener (that is,
                 // the onPrepared() method on this class, since we set the

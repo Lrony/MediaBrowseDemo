@@ -1,6 +1,8 @@
 package com.lrony.mediabrowsedemo.utils;
 
 import android.annotation.SuppressLint;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.media.MediaDescription;
@@ -13,11 +15,10 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.service.media.MediaBrowserService;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.lrony.mediabrowsedemo.MainActivity;
 import com.lrony.mediabrowsedemo.R;
 
 import java.lang.ref.WeakReference;
@@ -32,8 +33,6 @@ import static com.lrony.mediabrowsedemo.utils.MediaIDHelper.MEDIA_ID_MUSICS_BY_S
 import static com.lrony.mediabrowsedemo.utils.MediaIDHelper.MEDIA_ID_ROOT;
 
 /**
- * Created by Lrony on 19-2-22.
- * <p>
  * Provides "background" audio playback capabilities, allowing the
  * user to switch between activities without stopping playback.
  */
@@ -45,11 +44,16 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     // Delay stopSelf by using a handler.
     private static final int STOP_DELAY = 30000;
 
+    private static final int MSG_CODE_SAVE_MUSIC_DATE = 0;
+    private static final int MUSIC_DATE_SAVE_TIME = 1000;
+
     public static final String ACTION_CMD = "com.android.music.ACTION_CMD";
     public static final String CMD_NAME = "CMD_NAME";
     public static final String CMD_PAUSE = "CMD_PAUSE";
     public static final String CMD_REPEAT = "CMD_PAUSE";
     public static final String REPEAT_MODE = "REPEAT_MODE";
+
+    public static final String ACTION_PLAY_HISTORY = "com.android.music.ACTION_PLAY_HISTORY";
 
     public enum RepeatMode {REPEAT_NONE, REPEAT_ALL, REPEAT_CURRENT}
 
@@ -68,16 +72,20 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     // Extra information for this session
     private Bundle mExtras;
 
+    private MediaPlaybackHandler mMediaPlaybackHandler;
+
     public MediaPlaybackService() {
     }
 
     @Override
     public void onCreate() {
-        Log.d(TAG, "onCreate");
+        Log.d(TAG, "onCreate()");
         super.onCreate();
+        Log.d(TAG, "Create MusicProvider");
         mPlayingQueue = new ArrayList<>();
         mMusicProvider = new MusicProvider(this);
 
+        Log.d(TAG, "Create MediaSession");
         // Start a new MediaSession
         mSession = new MediaSession(this, "MediaPlaybackService");
         // Set extra information
@@ -101,30 +109,58 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         mPlayback.setCallback(this);
         mPlayback.start();
 
+        Context context = getApplicationContext();
+        Intent intent = new Intent(context, MainActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(
+                context, 99 /*request code*/, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        mSession.setSessionActivity(pi);
+
         updatePlaybackState(null);
+
+        mMediaPlaybackHandler = new MediaPlaybackHandler();
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        return super.onStartCommand(intent, flags, startId);
+    public int onStartCommand(Intent startIntent, int flags, int startId) {
+        if (startIntent != null) {
+            String action = startIntent.getAction();
+            String command = startIntent.getStringExtra(CMD_NAME);
+            if (ACTION_CMD.equals(action)) {
+                if (CMD_PAUSE.equals(command)) {
+                    if (mPlayback != null && mPlayback.isPlaying()) {
+                        handlePauseRequest();
+                    }
+                }
+            }
+        }
+        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
+        // Service is being killed, so make sure we release our resources
+        handleStopRequest(null);
 
+        mDelayedStopHandler.removeCallbacksAndMessages(null);
+        // Always release the MediaSession to clean up resources
+        // and notify associated MediaController(s).
+        mSession.release();
+
+        mMediaPlaybackHandler.removeCallbacksAndMessages(null);
     }
 
-    @Nullable
     @Override
-    public BrowserRoot onGetRoot(@NonNull String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
-        Log.d(TAG, "OnGetRoot: clientPackageName=" + clientPackageName + "; clientUid=" + clientUid
-                + " ; rootHints=" + rootHints);
+    public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
+        Log.d(TAG,
+                "OnGetRoot: clientPackageName=" + clientPackageName + "; clientUid=" + clientUid
+                        + " ; rootHints=" + rootHints);
+        // Allow everyone to browse
         return new BrowserRoot(MEDIA_ID_ROOT, null);
     }
 
     @Override
-    public void onLoadChildren(@NonNull final String parentMediaId, @NonNull final Result<List<MediaBrowser.MediaItem>> result) {
+    public void onLoadChildren(final String parentMediaId, final Result<List<MediaBrowser.MediaItem>> result) {
         Log.d(TAG, "OnLoadChildren: parentMediaId=" + parentMediaId);
         //  Browsing not allowed
         if (parentMediaId == null) {
@@ -234,7 +270,29 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
                     "OnLoadChildren sending " + mediaItems.size() + " results for "
                             + parentMediaId);
             result.sendResult(mediaItems);
-            updateMetadata();
+        }
+    }
+
+    private class MediaPlaybackHandler extends Handler {
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what) {
+                case MSG_CODE_SAVE_MUSIC_DATE:
+                    saveMusicPosition();
+                    mMediaPlaybackHandler.sendEmptyMessageDelayed(MSG_CODE_SAVE_MUSIC_DATE, MUSIC_DATE_SAVE_TIME);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private void saveMusicPosition() {
+        if (mPlayback.isPlaying()) {
+            Log.d(TAG, "saveMusicPosition");
+            SharedPreferencesUtil.getInstance().putMusicPosition(mPlayback.getCurrentStreamPosition());
         }
     }
 
@@ -256,12 +314,10 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
                     metadata.getLong(MediaMetadata.METADATA_KEY_DURATION));
             String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
             String artistName = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-            Bitmap albumArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
             MediaBrowser.MediaItem item = new MediaBrowser.MediaItem(new MediaDescription.Builder()
                     .setMediaId(hierarchyAwareMediaID)
                     .setTitle(title)
                     .setSubtitle(artistName)
-                    .setIconBitmap(albumArt)
                     .setExtras(songExtra)
                     .build(),
                     MediaBrowser.MediaItem.FLAG_PLAYABLE);
@@ -348,8 +404,8 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
                 mCurrentIndexOnQueue = QueueHelper.getMusicIndexOnQueue(mPlayingQueue, mediaId);
 
                 if (mCurrentIndexOnQueue < 0) {
-                    Log.e(TAG, "playFromMediaId: media ID " + mediaId
-                            + " could not be found on queue. Ignoring.");
+                    Log.e(TAG, "playFromMediaId: media ID " + mediaId +
+                            " could not be found on queue. Ignoring.");
                 } else {
                     // play the music
                     handlePlayRequest();
@@ -446,6 +502,9 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
                     mSession.setExtras(mExtras);
                     Log.d(TAG, "modified repeatMode=" + mRepeatMode);
                     break;
+                case ACTION_PLAY_HISTORY:
+                    playHistory();
+                    break;
                 default:
                     Log.d(TAG, "Unkown action=" + action);
                     break;
@@ -454,34 +513,8 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     }
 
     /**
-     * Handle a request to pause music
+     * Handle a request to play music
      */
-    private void handlePauseRequest() {
-        Log.d(TAG, "handlePauseRequest: mState=" + mPlayback.getState());
-        mPlayback.pause();
-        // reset the delayed stop handler.
-        mDelayedStopHandler.removeCallbacksAndMessages(null);
-        mDelayedStopHandler.sendEmptyMessageDelayed(0, STOP_DELAY);
-    }
-
-    /**
-     * Handle a request to stop music
-     */
-    private void handleStopRequest(String withError) {
-        Log.d(
-                TAG, "handleStopRequest: mState=" + mPlayback.getState() + " error=" + withError);
-        mPlayback.stop(true);
-        // reset the delayed stop handler.
-        mDelayedStopHandler.removeCallbacksAndMessages(null);
-        mDelayedStopHandler.sendEmptyMessageDelayed(0, STOP_DELAY);
-
-        updatePlaybackState(withError);
-
-        // service is no longer necessary. Will be started again if needed.
-        stopSelf();
-        mServiceStarted = false;
-    }
-
     private void handlePlayRequest() {
         Log.d(TAG, "handlePlayRequest: mState=" + mPlayback.getState());
 
@@ -503,6 +536,39 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
             updateMetadata();
             mPlayback.play(mPlayingQueue.get(mCurrentIndexOnQueue));
         }
+
+        mMediaPlaybackHandler.sendEmptyMessage(MSG_CODE_SAVE_MUSIC_DATE);
+    }
+
+    /**
+     * Handle a request to pause music
+     */
+    private void handlePauseRequest() {
+        Log.d(TAG, "handlePauseRequest: mState=" + mPlayback.getState());
+        mPlayback.pause();
+        // reset the delayed stop handler.
+        mDelayedStopHandler.removeCallbacksAndMessages(null);
+        mDelayedStopHandler.sendEmptyMessageDelayed(0, STOP_DELAY);
+        mMediaPlaybackHandler.removeCallbacksAndMessages(null);
+    }
+
+    /**
+     * Handle a request to stop music
+     */
+    private void handleStopRequest(String withError) {
+        Log.d(
+                TAG, "handleStopRequest: mState=" + mPlayback.getState() + " error=" + withError);
+        mPlayback.stop(true);
+        // reset the delayed stop handler.
+        mDelayedStopHandler.removeCallbacksAndMessages(null);
+        mDelayedStopHandler.sendEmptyMessageDelayed(0, STOP_DELAY);
+        mMediaPlaybackHandler.removeCallbacksAndMessages(null);
+
+        updatePlaybackState(withError);
+
+        // service is no longer necessary. Will be started again if needed.
+        stopSelf();
+        mServiceStarted = false;
     }
 
     @SuppressLint("WrongConstant")
@@ -519,14 +585,14 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         final String trackId = track.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
         if (!musicId.equals(trackId)) {
             IllegalStateException e = new IllegalStateException("track ID should match musicId.");
-            Log.d(TAG, "track ID should match musicId." + " musicId=" + musicId +
+            Log.e(TAG, "track ID should match musicId." + " musicId=" + musicId +
                     " trackId=" + trackId +
                     " mediaId from queueItem=" + queueItem.getDescription().getMediaId() +
                     " title from queueItem=" + queueItem.getDescription().getTitle() +
                     " mediaId from track=" + track.getDescription().getMediaId() +
                     " title from track=" + track.getDescription().getTitle() +
                     " source.hashcode from track=" +
-                    track.getString(MusicProvider.CUSTOM_METADATA_TRACK_SOURCE).hashCode() + e);
+                    track.getString(MusicProvider.CUSTOM_METADATA_TRACK_SOURCE).hashCode(), e);
             throw e;
         }
         Log.d(TAG, "Updating metadata for MusicID= " + musicId);
@@ -573,8 +639,12 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         }
     }
 
+    /**
+     * Update the current media player state, optionally showing an error message.
+     *
+     * @param error if not null, error message to present to the user.
+     */
     private void updatePlaybackState(String error) {
-        if (mPlayback == null) return;
         Log.d(TAG, "updatePlaybackState, playback state=" + mPlayback.getState());
         long position = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
         if (mPlayback != null && mPlayback.isConnected()) {
@@ -622,6 +692,80 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         return actions;
     }
 
+    private MediaMetadata getCurrentPlayingMusic() {
+        if (QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
+            MediaSession.QueueItem item = mPlayingQueue.get(mCurrentIndexOnQueue);
+            if (item != null) {
+                Log.d(TAG,
+                        "getCurrentPlayingMusic for musicId=" + item.getDescription().getMediaId());
+                return mMusicProvider
+                        .getMusicById(Long.parseLong(MediaIDHelper.extractMusicIDFromMediaID(
+                                item.getDescription().getMediaId())))
+                        .getMetadata();
+            }
+        }
+        return null;
+    }
+
+    private void playHistory() {
+        Log.d(TAG, "playHistory");
+        if (mPlayback.isPlaying()) {
+            Log.d(TAG, "playHistory isPlaying");
+            return;
+        }
+        if (!mMusicProvider.isInitialized()) {
+            Log.d(TAG, "playHistory not initialized");
+            mMusicProvider.retrieveMediaAsync(new MusicProvider.MusicProviderCallback() {
+                @Override
+                public void onMusicCatalogReady(boolean success) {
+                    Log.d(TAG, "onMusicCatalogReady: " + success);
+                    playHistory();
+                }
+            });
+        } else {
+            Log.d(TAG, "playHistory initialized");
+            playHistoryWithoutLoad();
+        }
+    }
+
+    private void playHistoryWithoutLoad() {
+        Log.d(TAG, "playHistoryWithoutLoad");
+        String mediaId = SharedPreferencesUtil.getInstance().getMediaBrowseId();
+        Log.d(TAG, "playHistoryWithoutLoad mediaId: " + mediaId);
+        if (TextUtils.isEmpty(mediaId)) {
+            Log.d(TAG, "playHistoryWithoutLoad mediaId isEmpty");
+            return;
+        }
+        // The mediaId used here is not the unique musicId. This one comes from the
+        // MediaBrowser, and is actually a "hierarchy-aware mediaID": a concatenation of
+        // the hierarchy in MediaBrowser and the actual unique musicID. This is necessary
+        // so we can build the correct playing queue, based on where the track was
+        // selected from.
+        mPlayingQueue = QueueHelper.getPlayingQueue(mediaId, mMusicProvider);
+        mSession.setQueue(mPlayingQueue);
+        String queueTitle = getString(R.string.usb_audio_browse_musics_by_genre_subtitle,
+                MediaIDHelper.extractBrowseCategoryValueFromMediaID(mediaId));
+        mSession.setQueueTitle(queueTitle);
+
+        if (mPlayingQueue != null && !mPlayingQueue.isEmpty()) {
+            // set the current index on queue from the media Id:
+            mCurrentIndexOnQueue = QueueHelper.getMusicIndexOnQueue(mPlayingQueue, mediaId);
+            Log.d(TAG, "playHistoryWithoutLoad mCurrentIndexOnQueue: " + mCurrentIndexOnQueue);
+
+            if (mCurrentIndexOnQueue < 0) {
+                Log.d(TAG, "playHistoryWithoutLoad: media ID " + mediaId +
+                        " could not be found on queue. Ignoring.");
+            } else {
+                Log.d(TAG, "playHistoryWithoutLoad play");
+                // play the music
+                handlePlayRequest();
+            }
+        }
+    }
+
+    /**
+     * Implementation of the Playback.Callback interface
+     */
     @Override
     public void onCompletion() {
         Log.d(TAG, "onCompletion");
