@@ -2,12 +2,16 @@ package com.lrony.mediabrowsedemo;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.media.MediaMetadata;
 import android.media.browse.MediaBrowser;
 import android.media.session.MediaController;
 import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -69,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements MainInterface,
 
         initView();
         initListener();
+        initNotificationChannel();
 
         PermissionReq.with(this)
                 .permissions(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -277,5 +282,23 @@ public class MainActivity extends AppCompatActivity implements MainInterface,
             default:
                 break;
         }
+    }
+
+    private void initNotificationChannel() {
+        Log.d(TAG, "initNotificationChannel");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = "music";
+            String channelName = "Music";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            createNotificationChannel(channelId, channelName, importance);
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private void createNotificationChannel(String channelId, String channelName, int importance) {
+        NotificationChannel channel = new NotificationChannel(channelId, channelName, importance);
+        NotificationManager notificationManager = (NotificationManager) getSystemService(
+                NOTIFICATION_SERVICE);
+        notificationManager.createNotificationChannel(channel);
     }
 }

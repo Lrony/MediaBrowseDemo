@@ -48,12 +48,11 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     private static final int MUSIC_DATE_SAVE_TIME = 1000;
 
     public static final String ACTION_CMD = "com.android.music.ACTION_CMD";
+    public static final String ACTION_PLAY_HISTORY = "com.android.music.ACTION_PLAY_HISTORY";
     public static final String CMD_NAME = "CMD_NAME";
     public static final String CMD_PAUSE = "CMD_PAUSE";
     public static final String CMD_REPEAT = "CMD_PAUSE";
     public static final String REPEAT_MODE = "REPEAT_MODE";
-
-    public static final String ACTION_PLAY_HISTORY = "com.android.music.ACTION_PLAY_HISTORY";
 
     public enum RepeatMode {REPEAT_NONE, REPEAT_ALL, REPEAT_CURRENT}
 
@@ -71,6 +70,8 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
     private RepeatMode mRepeatMode = RepeatMode.REPEAT_NONE;
     // Extra information for this session
     private Bundle mExtras;
+
+    private MediaNotificationManager mMediaNotificationManager;
 
     private MediaPlaybackHandler mMediaPlaybackHandler;
 
@@ -117,6 +118,8 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
 
         updatePlaybackState(null);
 
+        mMediaNotificationManager = new MediaNotificationManager(this);
+
         mMediaPlaybackHandler = new MediaPlaybackHandler();
     }
 
@@ -131,6 +134,8 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
                         handlePauseRequest();
                     }
                 }
+            } else if (ACTION_PLAY_HISTORY.equals(action)) {
+                playHistory();
             }
         }
         return START_STICKY;
@@ -649,6 +654,10 @@ public class MediaPlaybackService extends MediaBrowserService implements Playbac
         }
 
         mSession.setPlaybackState(stateBuilder.build());
+
+        if (state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED) {
+            mMediaNotificationManager.startNotification();
+        }
     }
 
     private long getAvailableActions() {

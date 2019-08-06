@@ -7,6 +7,10 @@
     <string name="usb_audio_browse_musics_by_genre_subtitle">%1$s songs</string>
     <string name="usb_audio_random_queue_title">Random music</string>
     <string name="usb_audio_no_search_results">No search results.</string>
+    <string name="usb_audio_skip_previous">Skip to previous</string>
+    <string name="usb_audio_skip_next">Skip to next</string>
+    <string name="usb_audio_play_pause">play or pause</string>
+    <string name="usb_audio_play_item">Play item</string>
 
     <string name="media_list_title_artists">Artists</string>
     <string name="media_list_title_albums">Albums</string>
